@@ -25,13 +25,13 @@ INDEX_HEADER = '''
 '''
 INDEX_POST = '''
       <a href="{post_url}"><h1>{post_title}</h1></a>
-      <p>📅 {post_datetime}</p>
+      <p>📅 {post_datetime} <a href="{source_url}">📄 source</a></p>
       <p>{post_summary}</p>
       <hr>
 '''
 POST_HEADER = '''
       <h1>{post_title}</h1>
-      <p>📅 {post_datetime}</p>
+      <p>📅 {post_datetime} <a href="{source_url}">📄 source</a></p>
       <p>{post_summary}</p>
 '''
 POST_FOOTER = '''
@@ -63,11 +63,11 @@ for filename in reversed(sorted(os.listdir(SOURCE_DIR+'/posts'))):
             post_title = post_md_content_frontmatter_line[len('title: '):]
         if post_md_content_frontmatter_line.startswith('summary: '):
             post_summary = post_md_content_frontmatter_line[len('summary: '):]   
-    index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, post_summary=post_summary))
+    index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+filename, post_summary=post_summary))
     post_html_f = open(BUILD_DIR+'/'+filename_name+'.html', 'w')
     # TODO extract post title, date, substitute in header templ
     post_html_f.write(HEADER.format(title=post_title))
-    post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, post_summary=post_summary))
+    post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+filename, post_summary=post_summary))
     # Problems with Markdown
     # - line breaks
     # - links
