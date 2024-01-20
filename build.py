@@ -1,6 +1,7 @@
 import os
 import sys
 import datetime
+import subprocess
 import markdown
 from markdown.extensions.tables import TableExtension
 from markdown.extensions.fenced_code import FencedCodeExtension
@@ -51,23 +52,29 @@ os.mkdir(BUILD_DIR)
 index_html_content_f = open(BUILD_DIR+'/index.html', 'w')
 index_html_content_f.write(HEADER.format(title="My name is not Gde dizajn, it's Minimalism"))
 #index_html_content_f.write(INDEX_HEADER)
-for filename in reversed(sorted(os.listdir(SOURCE_DIR+'/posts'))):
-    if not filename.endswith('.md'):
+#for post_md_filename in reversed(sorted(os.listdir(SOURCE_DIR+'/posts'))):
+for post_md_filepath in reversed(sorted(subprocess.check_output(['git', 'ls-files', 'posts']).decode().split('\n'))):
+    if not post_md_filepath:
         continue
-    filename_name = filename[:-3]
-    post_datetime = filename[:len('yyyy-mm-dd')]
-    post_md_content = open(SOURCE_DIR+'/posts/'+filename).read()
+    print(post_md_filepath)
+    post_md_filename = post_md_filepath.rsplit('/', 1)[1]
+    if not post_md_filename.endswith('.md'):
+        continue
+    filename_name = post_md_filename[:-3]
+    post_datetime = post_md_filename[:len('yyyy-mm-dd')]
+    #post_md_content = open(SOURCE_DIR+'/posts/'+post_md_filename).read()
+    post_md_content = subprocess.check_output(['git', 'show', 'main:'+post_md_filepath]).decode()
     _, post_md_content_frontmatter, post_md_content_body = post_md_content.split('---\n', 2)
     for post_md_content_frontmatter_line in post_md_content_frontmatter.split('\n'):
         if post_md_content_frontmatter_line.startswith('title: '):
             post_title = post_md_content_frontmatter_line[len('title: '):]
         if post_md_content_frontmatter_line.startswith('summary: '):
             post_summary = post_md_content_frontmatter_line[len('summary: '):]   
-    index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+filename, post_summary=post_summary))
+    index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+post_md_filename, post_summary=post_summary))
     post_html_f = open(BUILD_DIR+'/'+filename_name+'.html', 'w')
     # TODO extract post title, date, substitute in header templ
     post_html_f.write(HEADER.format(title=post_title))
-    post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+filename, post_summary=post_summary))
+    post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+post_md_filename, post_summary=post_summary))
     # Problems with Markdown
     # - line breaks
     # - links
