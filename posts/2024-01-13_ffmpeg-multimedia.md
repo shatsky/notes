@@ -36,6 +36,18 @@ Proposed solutions are:
 
 All these solutions seem to result in creation of file which has both video and audio starting from preceding keyframe (synchronized, of course)
 
+**Encode video to H.264**: `ffmpeg -i "${input_file}" -c:v libx264 "${output_file}"`
+
+If output_file is *.mp4, ffmpeg picks H.264 by default
+
+**Cut videos at defined time interval and render subtitles into video**: `ffmpeg -ss ${hh_start}:${mm_start}:${ss_start} -copyts -to ${hh_end}:${mm_end}:${ss_end} -i "${input_file}" -ss ${hh_start}:${mm_start}:${ss_start} -vf subtitles="${input_file_containing_subtitles}:si={subtitles_track_index}" "${output_file}"`
+
+`${input_file_containing_subtitles}` is required even if subtitle tracks are contained in input video file, i. e. if duplicating `${input_file}`
+
+`:si={subtitles_track_index}` is only required if there are multiple subtitle tracks and needed track is not the 1st
+
+`-copyts` and 2nd `-ss` are required
+
 ### Reference of used FFmpeg cmdline options
 
 - `-codec copy`: copy streams without re-encoding, i. e. without added loss of quality
@@ -58,7 +70,7 @@ To put simply:
 | Name | Meaning | Origins |
 | ---  | ---     | ---     |
 | MP4  | MP4 container containing H.264/H.265 video stream | Initially supported in major proprietary browsers developed by commercial companies since HTML5 \<video\> tag was introduced |
-| Ogg  | Ogg container containing Theora video stream | Alternative pushed by FOSS community because MP4 standards are not truly free, making them hardly available to non-commercial developers and just incompatible with FOSS philosophy; practically obsoleted by WebM |
+| Ogg  | Ogg container containing Theora video stream | Alternative pushed by FOSS community because MP4/H.264 standards are not truly free, making them problematic to implement for non-commercial developers and just incompatible with FOSS philosophy; practically obsoleted by WebM |
 | WebM | MKV container containing VP8/VP9 video stream | Alternative pushed by Google because commercial companies opposed to implementing Ogg/Theora; Google just bought On2, company which had developed Theora, originally known as VP3, made all its then-latest competitive VP8 codec public domain too, and continued developing it; MKV container chosen for multiplexing had been open standard from the beginning |
 
 Full reality is more complicated, for each format there are more codecs (which are extremely rarely used), but at the same time some major browsers don't support even some of those mentioned (or did in the past but have dropped support). HTML5 itself doesn't actually define required formats which should be supported for \<video\> (but allows to provide several different files)
