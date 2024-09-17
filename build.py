@@ -2,12 +2,10 @@ import os
 import sys
 import datetime
 import subprocess
-import markdown
-from markdown.extensions.tables import TableExtension
-from markdown.extensions.fenced_code import FencedCodeExtension
 
 SOURCE_DIR = '.'
 BUILD_DIR = sys.argv[1]
+BRANCH = sys.argv[2] if len(sys.argv)>2 else None
 HEADER = '''
 <!doctype html>
 <html>
@@ -52,37 +50,41 @@ os.mkdir(BUILD_DIR)
 index_html_content_f = open(BUILD_DIR+'/index.html', 'w')
 index_html_content_f.write(HEADER.format(title="My name is not Gde dizajn, it's Minimalism"))
 #index_html_content_f.write(INDEX_HEADER)
-#for post_md_filename in reversed(sorted(os.listdir(SOURCE_DIR+'/posts'))):
-for post_md_filepath in reversed(sorted(subprocess.check_output(['git', 'ls-files', 'posts']).decode().split('\n'))):
-    if not post_md_filepath:
+post_md_filenames = (
+    reversed(sorted(os.listdir(SOURCE_DIR+'/posts'))) if BRANCH is None
+    else reversed(sorted([path[len('posts/'):] for path in subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', BRANCH]).decode().split('\n')
+                          if path.startswith('posts/')])))
+for post_md_filename in post_md_filenames:
+    if not post_md_filename:
         continue
-    print(post_md_filepath)
-    post_md_filename = post_md_filepath.rsplit('/', 1)[1]
+    print(post_md_filename)
     if not post_md_filename.endswith('.md'):
         continue
     filename_name = post_md_filename[:-3]
     post_datetime = post_md_filename[:len('yyyy-mm-dd')]
-    #post_md_content = open(SOURCE_DIR+'/posts/'+post_md_filename).read()
-    post_md_content = subprocess.check_output(['git', 'show', 'main:'+post_md_filepath]).decode()
+    post_md_content = (open(SOURCE_DIR+'/posts/'+post_md_filename).read() if BRANCH is None
+        else subprocess.check_output(['git', 'show', BRANCH+':posts/'+post_md_filename]).decode())
+    if not post_md_content.startswith('---'):
+        continue
     _, post_md_content_frontmatter, post_md_content_body = post_md_content.split('---\n', 2)
     for post_md_content_frontmatter_line in post_md_content_frontmatter.split('\n'):
         if post_md_content_frontmatter_line.startswith('title: '):
             post_title = post_md_content_frontmatter_line[len('title: '):]
         if post_md_content_frontmatter_line.startswith('summary: '):
-            post_summary = post_md_content_frontmatter_line[len('summary: '):]   
+            post_summary = post_md_content_frontmatter_line[len('summary: '):]
     index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+post_md_filename, post_summary=post_summary))
     post_html_f = open(BUILD_DIR+'/'+filename_name+'.html', 'w')
     # TODO extract post title, date, substitute in header templ
     post_html_f.write(HEADER.format(title=post_title))
     post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+post_md_filename, post_summary=post_summary))
-    # Problems with Markdown
+    # Problems with Python-Markdown
     # - line breaks
     # - links
     # - strikethrough
     # - no lists, code blocks, tables, etc. within paragraph
     # - numeric lists starting with 1. even when different num used in src (ol has attr)
     # - characters unexpectedly interpreted
-    post_html_content = markdown.markdown(post_md_content_body, extensions=[TableExtension(use_align_attribute=True), FencedCodeExtension()])
+    post_html_content = subprocess.run('cmark-gfm -e table -e strikethrough'.split(' '), input=post_md_content_body.encode(), capture_output=True).stdout.decode()
     post_html_content = post_html_content.replace('<table>', '<table class="table">')
     post_html_f.write(post_html_content)
     post_html_f.write(POST_FOOTER)
