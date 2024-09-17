@@ -28,18 +28,15 @@ jobs:
         working-directory: ${{ github.workspace }}/blog
         run: |
           rm -rf ${{ github.workspace }}/shatsky.github.io/posts
-          #python3 -m pip install markdown
           sudo apt-get update
           sudo apt-get install -y cmark-gfm
           python3 ./build.py $GITHUB_WORKSPACE/shatsky.github.io/posts
 
       - name: push to website repo
         working-directory: ${{ github.workspace }}/shatsky.github.io
-        env:
-          WEBSITE_REPO_TOKEN: ${{ secrets.WEBSITE_REPO_TOKEN }}
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add posts
           git commit -m "automatic push of rendered blog posts changes via github-actions upon push to blog repo"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/shatsky/shatsky.github.io.git
