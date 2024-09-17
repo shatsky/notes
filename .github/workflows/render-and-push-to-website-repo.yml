@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
   render-and-push-to-website-repo-job:
     runs-on: ubuntu-latest
