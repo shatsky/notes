@@ -11,8 +11,12 @@ First items are pretty basic and written down mostly to help explain my non-IT f
 
 All non-dumb individuals grown with computers around have intuitive basic idea of computer cryptography as something which has "keys" (which are, as everything in computers, numbers represented as bytes), "encryption", which is transformation of original data into something non-readable, and "decryption", which is reverse process. Few less obvious important generic features of modern cryptographic systems:
 
-- encrypted data should look like "random noise" (to make it impossible for cracker to decrypt it using statistical analysis)
+- encrypted data should have no statistical correlation with original data (to make it impossible for cracker to decrypt it using statistical analysis)
 - understanding of crypto algorithm should not be helpful for cracker (to make it possible for everyone to use same crypto software)
+
+*"Perfect" solution to remove correlation would be to combine each symbol of data with symbol of random sequence, effectively turning data into "random noise"; cryptosystem in which "key" is (unique) random sequence with same length as data is truly, absolutely unbreakable, but nightmare to use in practice ("one-time crypto pads" for spies); in practical cryptosystem with good balance between security and useability, keys have fixed length (short, but still long enough to make bruteforcing practically impossible) and random values, and cryptosystem operation can be seen as "stretching" enthropy of the key to the length of the data*
+
+*On the bruteforce resistance of modern cryptosystems: with 256 bit key length, key can have 2\*\*256=115792089237316195423570985008687907853269984665640564039457584007913129639936 different values; with current RAM speeds, it will take (2\*\*256)\*8/30000000000/3600/24/365=9.791314834882142e+59 (10^59) years just to write all possible values to RAM (age of the Universe is theorerized to be 1.37e+10 years)*
 
 *TODO with asymmetric crypto only used for signing in modern applications, it may be better to present it as signing tool, instead of starting with encryption and slowly crawling to signing and auth*
 
@@ -20,7 +24,7 @@ All non-dumb individuals grown with computers around have intuitive basic idea o
 
 **Symmetric and asymmetric cryptography (aka public key cryptography)**: asymmetric crypto systems have "keypairs", consisting of "public key" used to encrypt data and "private key" used to decrypt (mathematical design of such crypto system should make it impossible to derive private key from public key, i. e. to decrypt data without private key); "symmetric cryptography" is "retrospective" term for non-asymmetric crypto systems which use one key (now often called "symmetric key") for both encryption and decryption. Asymmetric cryptography helps solve two problems, known as key distribution problem and authentication (see below).
 
-Common symmetric crypto systems: AES, ChaCha
+Common symmetric crypto systems: AES
 
 Common asymmetric crypto systems: RSA, ECDSA
 
@@ -34,7 +38,7 @@ Common asymmetric crypto systems: RSA, ECDSA
 
 *TODO what is correct to speak of as being authenticated, party or messages/data supposedly received from that party? Many resources use "authentication of party" concept, but it creates some confusion, as in communication system party never "touches" another party, only received messages*
 
-**Diffie–Hellman key exchange**: algorithm which allows 2 parties to negotiate a common secret number (i. e. symmetric key) in such way that it's not possible to obtain it from intercepted negotiation messages
+**Diffie-Hellman key exchange**: algorithm which allows 2 parties to negotiate a common secret number (i. e. symmetric key) in such way that it's not possible to obtain it from intercepted negotiation messages
 
 *All asymmetric crypto and DH algorithms are based on "one-way functions": mathematical functions for which it's "computationally easy" (read: possible almost instantly) to compute function value from argument, but "computationally hard" (read: not possible at all, apart from bruteforcing which should take ages) to calculate original argument from function value. Funnily enough, all such functions used in existing crypto are not mathematically proven to be truly "one-way functions"; there's just public consensus that it's safe enough to use crypto based upon them, because their reversal "intuitively feels" impossible and no one has yet published evidence of existence of working method for it, despite great fame and awards (though not without grain of salt) waiting for anyone who does it; this question is in fact case of fundamental "P?NP" problem famous in maths/CS community*
 
@@ -65,6 +69,8 @@ With this additional information and availability of "linked" "higher" certifica
 **Chain of trust**: chain of certificates in which each next ("higher") one is authority certificate for previous one, so that each previous can be validated via next one, ending with trusted root certificate
 
 **CSR (Certificate Signing Request)**: message in certain defined format, similar to self signed certificate, but intended for CA which should sign the certificate with their private key
+
+*TODO: explain how identity of requesting party is proven/verified by CAs*
 
 **PKI (Public Key Infrastructure)**: infrastructure consisting of all above; one may think about relation of PKI to all above similarly to relation of Internet to network protocols, software and hardware
 
@@ -97,6 +103,13 @@ https://www.cloudflare.com/learning/ssl/what-happens-in-a-tls-handshake/
 **OpenSSL**: common open source cryptographic software library providing implementations of common crypto systems, formats and protocols, including X.509 PKI and TLS, used by most web servers in the Internet; also includes utilities to generate and manage asymmetric crypto keypairs, certificates, etc.
 
 *There are other common TLS implementations, including GnuTLS and NSS (used by Firefox)*
+
+**Let's summarize:**
+
+1. **Asymmetric crypto allows, having authentic public key of other communicating party which possesses matching private key, to authenticate messages with cryptographic signatures received from that party**
+2. **PKI allows communicating party to verify that provided public key is authentic. Software/hadware relying on X.509 PKI has relatively small number of preinstalled trusted root certificates containing public keys of "certificate authorities" which are "under the watchful eye of the tech community"; all other public keys which should be authenticated are distributed in certificates which are signed by CAs and validated via root certificates**
+3. **Algorithms-protocols of secure generation of secret key allow communicating parties, with authentication provided by asymmetric cryptography and PKI, to securily generate shared encryption key, which can't be obtained from intercepted messages**
+4. **Secure communication systems are designed to transform data in such way that every bit of sent data becomes encrypted proof that sending party has private key which matches public key; without having the private key it's impossible to send anything which won't be rejected**
 
 ## Storing crypto keys and other objects
 
