@@ -106,9 +106,9 @@ https://www.cloudflare.com/learning/ssl/what-happens-in-a-tls-handshake/
 
 **Let's summarize:**
 
-1. **Asymmetric crypto allows, having authentic public key of other communicating party which possesses matching private key, to authenticate messages with cryptographic signatures received from that party**
-2. **PKI allows communicating party to verify that provided public key is authentic. Software/hadware relying on X.509 PKI has relatively small number of preinstalled trusted root certificates containing public keys of "certificate authorities" which are "under the watchful eye of the tech community"; all other public keys which should be authenticated are distributed in certificates which are signed by CAs and validated via root certificates**
-3. **Algorithms-protocols of secure generation of secret key allow communicating parties, with authentication provided by asymmetric cryptography and PKI, to securily generate shared encryption key, which can't be obtained from intercepted messages**
+1. **Asymmetric crypto allows, having authentic public key of other communicating party which possesses matching private key, to authenticate messages with cryptographic signatures received from that party (authentication of messages via public keys)**
+2. **PKI (system of certificates) allows communicating party to verify that provided public key is authentic (authentication of public keys via certificates). Software/hadware relying on X.509 PKI has relatively small number of preinstalled trusted root certificates containing public keys of "certificate authorities" which are "under the watchful eye of the tech community"; all other public keys which should be authenticated are distributed in certificates which are signed by CAs and validated via root certificates**
+3. **Algorithms-protocols of secure generation of secret key (Diffie-Hellman) allow communicating parties, with authentication provided by asymmetric cryptography and PKI, to securily generate shared encryption key, which can't be obtained from intercepted messages**
 4. **Secure communication systems are designed to transform data in such way that every bit of sent data becomes encrypted proof that sending party has private key which matches public key; without having the private key it's impossible to send anything which won't be rejected**
 
 ## Storing crypto keys and other objects
