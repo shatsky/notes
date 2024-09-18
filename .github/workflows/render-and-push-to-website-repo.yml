@@ -42,4 +42,4 @@ jobs:
           git config --global user.email 'github-actions@github.com'
           git add posts
           git commit -m "automatic push of rendered blog posts changes via github-actions upon push to blog repo"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/shatsky/shatsky.github.io.git
+          git push https://x-access-token:${{ secrets.WEBSITE_REPO_TOKEN }}@github.com/shatsky/shatsky.github.io.git
