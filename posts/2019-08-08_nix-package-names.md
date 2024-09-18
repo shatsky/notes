@@ -32,11 +32,13 @@ stdenv.mkDerivation is a "builder" function which produces a derivation set.
 
 Q: What is a derivation? How derivation sets, derivations, /nix/store/*.drv files and paths with package contents are related?
 A: Another thing which can make Nix hard to understand is protruding of this entity. If you think as a programmer about how Nix can make package nix expression into package contents, it may be obvious there should be some intermediate representation with final values of dependencies locations, etc. Derivation is its name, and .drv files are used to store derivations. Derivation contains build hashes of inputs (i. e. locations of dependencies in /nix/store) and of own outputs (i. e. locations which will be used to store package contents in /nix/store when derivation will be built). Evaluating a derivation set causes derivation to be created and stored in .drv file, as well as derivations of all dependencies (closure). After that derivation can be built, causing package contents to be produced and stored. Here I've tried to summarize Nix flow in a table:
-Nix entity 	Location 	derivative produced via 	antiderivative found via
-Package nix expression 	nixpkgs source tree 	loading 	-
-Derivation set (accessible via attribute name) 	nix scope 	evaluating 	?
-Derivation 	/nix/store 	building 	?
-Output path (package contents) 	/nix/store 	- 	nix show-derivation ${path}
+
+| Nix entity 	| Location 	| derivative produced via 	| antiderivative found via |
+| ---	| ---	| ---	| --- |
+| Package nix expression 	| nixpkgs source tree 	| loading 	| - |
+| Derivation set (accessible via attribute name) 	| nix scope 	| evaluating 	| ? |
+| Derivation 	| /nix/store 	| building 	| ? |
+| Output path (package contents) 	| /nix/store 	| - 	| nix show-derivation ${path} |
 
 Q: I see package nix expression directory in nixpkgs source tree, how can I build and install the package?
 A: "nix-env -i ${name}" if you can isolate derivation name value in the source, but it's not guaranteed that exactly the one you're looking at will be build because another package expression can declare same ${name}; you can't even be sure that expression you're looking at is bound to an attribute in nix scope at all. Nix is all about the scope, you should think of nixpkgs nix expressions as of a single program, its source splitted into small files and structured into tree hierarchy only for programmer's convenience; browsing the source tree is not intended way to find packages, and there seems to be no straightforward way to map source file path to attribute in the scope.
