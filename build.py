@@ -44,6 +44,35 @@ FOOTER = '''
 </html>
 '''
 
+# quick&dirty markdown preprocess function to turn urls into links
+# TODO do this properly after html rendering (html markup inside <code>/<pre> blocks is interpreted as usual)
+def preprocess(md_content):
+    multiline_parts = md_content.split('```')
+    flag_multiline_code = True
+    for multiline_part_i in range(len(multiline_parts)):
+        if not (multiline_part_i>0 and multiline_parts[multiline_part_i-1].endswith('\\')):
+            flag_multiline_code = not flag_multiline_code
+        if flag_multiline_code:
+            continue
+        lines = multiline_parts[multiline_part_i].split('\n')
+        for line_i in range(len(lines)):
+            inline_parts = lines[line_i].split('`')
+            flag_inline_code = True
+            for inline_part_i in range(len(inline_parts)):
+                if not (inline_part_i>0 and inline_parts[inline_part_i-1].endswith('\\')):
+                    flag_inline_code = not flag_inline_code
+                if flag_inline_code:
+                    continue
+                words = inline_parts[inline_part_i].split(' ')
+                for word_i in range(len(words)):
+                    if words[word_i].startswith('http://') or words[word_i].startswith('https://'):
+                        words[word_i] = '[' + words[word_i] + '](' + words[word_i] + ')'
+                inline_parts[inline_part_i] = ' '.join(words)
+            lines[line_i] = '`'.join(inline_parts)
+        multiline_parts[multiline_part_i] = '\n'.join(lines)
+    md_content = '```'.join(multiline_parts)
+    return md_content
+
 assert BUILD_DIR
 assert os.path.exists(BUILD_DIR)==False
 os.mkdir(BUILD_DIR)
@@ -84,7 +113,8 @@ for post_md_filename in post_md_filenames:
     # - no lists, code blocks, tables, etc. within paragraph
     # - numeric lists starting with 1. even when different num used in src (ol has attr)
     # - characters unexpectedly interpreted
-    post_html_content = subprocess.run('cmark-gfm -e table -e strikethrough'.split(' '), input=post_md_content_body.encode(), capture_output=True).stdout.decode()
+    post_md_content_body = preprocess(post_md_content_body)
+    post_html_content = subprocess.run('cmark-gfm -e table -e strikethrough --hardbreaks'.split(' '), input=post_md_content_body.encode(), capture_output=True).stdout.decode()
     post_html_content = post_html_content.replace('<table>', '<table class="table">')
     post_html_f.write(post_html_content)
     post_html_f.write(POST_FOOTER)
