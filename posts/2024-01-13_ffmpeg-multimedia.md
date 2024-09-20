@@ -57,10 +57,10 @@ If output_file is *.mp4, ffmpeg picks H.264 by default
 
 ## Formats
 
-"Video format" is usually combination of
+"Video file format" is usually combination of
 
-- video stream (codec) format
-- audio stream (codec) format
+- video coding format
+- audio coding format
 - some metadata format(s)
 - container (muxer) format, multiplexing all above so that they can be stored in single file and played synchronously; some container formats are developed to contain only specific stream formats, others are more generic
 
@@ -78,16 +78,20 @@ To put simply:
 
 Full reality is more complicated, for each format there are more codecs (which are extremely rarely used), but at the same time some major browsers don't support even some of those mentioned (or did in the past but have dropped support). HTML5 itself doesn't actually define required formats which should be supported for \<video\> (but allows to provide several different files)
 
-### Video codecs
+### Video and image coding formats
 
-| Name   | Aka                                                | Org              | Year | Notes |
-| ---    | ---                                                | ---              | ---  | ---   |
-| H.264  | AVC (Advanced Video Coding), MPEG-4 Part 10        | ISO and others | 2004 ||
-| H.265  | HEVC (High Efficiency Video Coding), MPEG-H Part 2 | ISO and others | 2013 ||
-| VP8    |                                                    | On2 -> Google    | 2008 | Bought by Google with its developer company to create WebM video format; also used in WebP image format |
-| VP9    |                                                    | Google           | 2012 | Subsequent development of VP8 |
-| Theora | VP3                                                | On2 -> Xiph.org  | 2004 | To be precise, VP3 and Theora are not same thing; On2 had released VP3 into public domain, and Xiph.org "improved" it, creating "superset" codec (Theora implementations can decode VP3 streams, but original VP3 can't decode Theora streams) |
-| AV1    |                                                    | Google -> AOMedia | 2018 | Created as successor to Google VP9 by AOMedia, consortium created by key industry players incl. Amazon, Google, Intel, Microsoft and Mozilla for development of open, royalty-free web multimedia standards; also used in AVIF image format |
+| Name           | Org              | Year | Notes |
+| ---            | ---              | ---  | ---   |
+| H.264 aka AVC  | ISO and others   | 2004 | "MPEG-4 Part 10: Advanced Video Coding", name "H.264" being its ITU-T number; currently most popular because hardware for efficient decoding is most available in consumer devices |
+| H.265 aka HEVC | ISO and others   | 2013 | "MPEG-H Part 2: High Efficiency Video Coding", name "H.265" being its ITU-T number |
+| VP8            | On2 -> Google    | 2008 | Bought by Google with its developer company to create WebM video format; also used in WebP image format |
+| VP9            | Google           | 2012 | Subsequent development of VP8 |
+| Theora aka VP3 | On2 -> Xiph.org  | 2004 | To be precise, VP3 and Theora are not same thing; On2 had released VP3 into public domain, and Xiph.org "improved" it, creating "superset" codec (Theora implementations can decode VP3 streams, but original VP3 can't decode Theora streams) |
+| AV1            | Google -> AOMedia | 2018 | Created as successor to Google VP9 by AOMedia, consortium created by key industry players incl. Amazon, Google, Intel, Microsoft and Mozilla for development of open, royalty-free web multimedia standards; also used in AVIF image format |
+| JPEG           | JPEG             | 1992 | JPEG is actually image codec, but it's technically possible to use image codecs for compressing video streams (quite inefficiently as these can't handle interframe redundancy); while new image formats based on "true" video codecs are becoming popular, JPEG is still most common one, and even still relevant as video codec, used by many cheap webcams and video capture devices (chips for hardware JPEG compression are much more affordable then ones for "true" video codecs), stream of JPEG-compressed frames known as "MJPEG video" |
+| JPEG-XL        |                  | 2022 | Image codec which is more efficient than JPEG and allows "lossless recompression of lossy-compressed JPEG", so that existing JPEG files can be compressed ~20% more without quality loss; however Google decided to oppose it, removing initially added support from Chrome and ignoring requests to re-add it |
+
+*MPEG which is appearing a lot in names of multimedia standards is actually "Moving Picture Experts Group", joint entity of ISO and IEC, "world standartization authorities", something like UN for tech corporations, which develop shared standards via it; these standards can be accessed by anyone, but not for free, and can and usually are covered by patents, owners of which can demand royalties for using tech solutions covered by them*
 
 ### Container and file formats
 
@@ -95,13 +99,14 @@ Full reality is more complicated, for each format there are more codecs (which a
 
 | Name | Extends | Filename ext | Contained video streams | Contained audio streams | Org | Year | Notes |
 | ---  | ---     | ---          | ---                     | ---                     | --- | ---  | ---   |
-| ISOBMFF |      |              |                         |                         | ISO and others | 2004 | base container format |
-| MP4  | ISOBMFF | .mp4         | usually H.265 or H.264  | usually AAC             | ISO and others | 2001 ||
-| MKV  |         | .mkv         | virtually any           | virtually any           | Matroska project | 2002 | "Matroska", totally generic container and file format |
+| ISOBMFF |      |              |                         |                         | ISO and others | 2004 | "MPEG-4 Part 12: ISO base media file format", base container format, developed as "generalization" of MP4 |
+| MP4  | ISOBMFF | .mp4         | usually H.265 or H.264  | usually AAC             | ISO and others | 2001 | "MPEG-4 Part 14: MP4 file format", originally based on Apple QuickTime file format (QTFF, .mov), .mp4 files can contain streams of many different types, but it seems that MP4 standard covers specifically MPEG-4 streams, and anything else means it's actually different sub/superset of ISOBMFF, also they share "Registration Authority" https://mp4ra.org/ |
+| MKV  |         | .mkv         | virtually any           | virtually any           | Matroska project | 2002 | "Matroska", totally generic container and file format, open standard |
 | WebM | MKV     | .webm        | VP8/VP9/AV1             | Vorbis/Opus             | Google | 2010 ||
 | Ogg  |         | .ogg         | usually Theora          | usually Vorbis or FLAC  | Xiph.org | 2003 ||
 | RIFF |         |              |                         |                         | Microsoft, IBM | 1991 | base container format for many formats, including WebP and historically relevant (non-Web) AVI ("Audio Video Interleave", popular for storing videos in 90s-00s, usually containing MPEG-1/2/4 Part 2 video streams) and WAV ("Waveform Audio File Format", popular for storing audio recordings in 90s-00s, usually containing LPCM audio stream) |
 | WebP | RIFF    | .webp        | VP8 (single frame)      | -                       | Google | 2010 ||
-| HEIF | ISOBMFF | .heif        |                         | -                       | ISO and others | 2015 | container and file format designed for images and image sequences |
+| HEIF | ISOBMFF | .heif        |                         | -                       | ISO and others | 2015 | "MPEG-H Part 12: High Efficiency Image File Format", container and file format designed for images and image sequences |
 | HEIC | HEIF    | .heic        | H.265 (single frame)    | -                       | ISO and others | 2015 ||
 | AVIF | HEIF    | .avif        | AV1 (single frame)      | -                       | AOMedia | 2019 ||
+| JFIF |         | .jpg         | JPEG (single frame)     | -                       || 1992 | "JPEG File Interchange Format" aka JPEG file format, there's also EXIF "EXchangeable Image File format" created later by camera manufacturers, which is almost identical but has some formal incompatibility, in practice "mixed JFIF+EXIF" seems to be used everywhere, with metadata encoded as per EXIF spec |
