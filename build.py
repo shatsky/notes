@@ -18,6 +18,7 @@ HEADER = '''
   <body>
     <div class="container py-5">
       <p>DISCLAIMER: these notes reflect my knowledge and understanding of subjects, not the ultimate truth. Corrections are welcome</p>
+      <hr>
       <!--header end-->
 '''
 INDEX_HEADER = '''
