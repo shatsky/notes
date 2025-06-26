@@ -1,6 +1,6 @@
 ---
 title: SDL3 image viewer development notes
-summary: notes about development of https://github.com/shatsky/lightning-image-viewer
+summary: Notes about development of https://github.com/shatsky/lightning-image-viewer
 ---
 
 This is not SDL3 app development guide. SDL3 documentation is quite good and complete. These are notes about some corner cases and related problems.
