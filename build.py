@@ -17,6 +17,7 @@ HEADER = '''
   </head>
   <body>
     <div class="container py-5">
+      <p>DISCLAIMER: these notes reflect my knowledge and understanding of subjects, not the ultimate truth. Corrections are welcome</p>
       <!--header end-->
 '''
 INDEX_HEADER = '''
@@ -35,6 +36,7 @@ POST_HEADER = '''
 '''
 POST_FOOTER = '''
       <hr>
+      <p>Comments are not implemented, but you can create issue on GitHub or check existing ones</p>
       <a href="index.html">Return to index</a>
 '''
 FOOTER = '''
@@ -80,9 +82,9 @@ index_html_content_f = open(BUILD_DIR+'/index.html', 'w')
 index_html_content_f.write(HEADER.format(title="My name is not Gde dizajn, it's Minimalism"))
 #index_html_content_f.write(INDEX_HEADER)
 post_md_filenames = (
-    reversed(sorted(os.listdir(SOURCE_DIR+'/posts'))) if BRANCH is None
-    else reversed(sorted([path[len('posts/'):] for path in subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', BRANCH]).decode().split('\n')
-                          if path.startswith('posts/')])))
+    reversed(sorted(os.listdir(SOURCE_DIR+'/src'))) if BRANCH is None
+    else reversed(sorted([path[len('src/'):] for path in subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', BRANCH]).decode().split('\n')
+                          if path.startswith('src/')])))
 for post_md_filename in post_md_filenames:
     if not post_md_filename:
         continue
@@ -91,8 +93,8 @@ for post_md_filename in post_md_filenames:
         continue
     filename_name = post_md_filename[:-3]
     post_datetime = post_md_filename[:len('yyyy-mm-dd')]
-    post_md_content = (open(SOURCE_DIR+'/posts/'+post_md_filename).read() if BRANCH is None
-        else subprocess.check_output(['git', 'show', BRANCH+':posts/'+post_md_filename]).decode())
+    post_md_content = (open(SOURCE_DIR+'/src/'+post_md_filename).read() if BRANCH is None
+        else subprocess.check_output(['git', 'show', BRANCH+':src/'+post_md_filename]).decode())
     if not post_md_content.startswith('---'):
         continue
     _, post_md_content_frontmatter, post_md_content_body = post_md_content.split('---\n', 2)
@@ -101,11 +103,11 @@ for post_md_filename in post_md_filenames:
             post_title = post_md_content_frontmatter_line[len('title: '):]
         if post_md_content_frontmatter_line.startswith('summary: '):
             post_summary = post_md_content_frontmatter_line[len('summary: '):]
-    index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+post_md_filename, post_summary=post_summary))
+    index_html_content_f.write(INDEX_POST.format(post_url=filename_name+'.html', post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/notes/blob/main/src/'+post_md_filename, post_summary=post_summary))
     post_html_f = open(BUILD_DIR+'/'+filename_name+'.html', 'w')
     # TODO extract post title, date, substitute in header templ
     post_html_f.write(HEADER.format(title=post_title))
-    post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/blog/blob/main/posts/'+post_md_filename, post_summary=post_summary))
+    post_html_f.write(POST_HEADER.format(post_title=post_title, post_datetime=post_datetime, source_url='https://github.com/shatsky/notes/blob/main/src/'+post_md_filename, post_summary=post_summary))
     # Problems with Python-Markdown
     # - line breaks
     # - links

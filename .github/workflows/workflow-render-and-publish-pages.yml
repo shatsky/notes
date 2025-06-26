@@ -1,0 +1,41 @@
+name: workflow-render-and-publish-pages
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  job-render-and-publish-pages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: step-checkout
+        uses: actions/checkout@v2
+        with:
+          path: notes
+
+      - name: step-pages-render
+        run: |
+          apt update
+          apt install -y cmark-gfm
+          rm -rf pages
+          cd notes
+          python3 ./build.py ../pages
+
+      - name: step-pages-setup
+        uses: actions/configure-pages@v5
+
+      - name: step-pages-upload-artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+      - name: step-pages-deploy-to-github
+        id: deploy_pages
+        uses: actions/deploy-pages@v4
