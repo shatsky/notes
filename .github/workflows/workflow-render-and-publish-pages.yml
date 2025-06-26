@@ -22,8 +22,8 @@ jobs:
 
       - name: step-pages-render
         run: |
-          apt update
-          apt install -y cmark-gfm
+          sudo apt update
+          sudo apt install -y cmark-gfm
           rm -rf pages
           cd notes
           python3 ./build.py ../pages
