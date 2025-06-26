@@ -14,13 +14,11 @@ Note: processor virtualization extensions are often disabled by default in firmw
 
 # VirtIO devices and drivers, SPICE
 
-By default new libvirt VM invokes qemu with options to emulate some real ancient devices such as storage/network/graphics/etc. controllers, for which typical OS like Windows has drivers included, but this emulation has significant overhead. VirtIO is "family" of "minimal overhead" virtual devices, "emulation" of which  is basically reduced to minimal nessessary communication with respective host OS subsystems, but this requires custom drivers in guest OS.
-
-https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso ( https://github.com/virtio-win/virtio-win-pkg-scripts/blob/master/README.md )
+By default new libvirt VM invokes qemu with options to emulate some real ancient devices such as storage/network/graphics/etc. controllers, for which typical OS like Windows has drivers included, but this emulation has significant overhead. VirtIO is "family" of "minimal overhead" virtual devices, "emulation" of which  is basically reduced to minimal nessessary communication with respective host OS subsystems, but this requires custom drivers in guest OS. "virtio-win" is project providing collection of Windows drivers for these devices. It is primarily distributed as ISO image https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso (see also https://github.com/virtio-win/virtio-win-pkg-scripts/blob/master/README.md )
 
 https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers#Using_the_ISO
 
-`virtio-win-gt-x64.msi` is VirtIO drivers package for Windows x64, currently including:
+`virtio-win-gt-x64.msi` in virtio-win.iso is actual VirtIO drivers package for Windows x64, currently including:
 - balloon
 - network
 - pvpanic
@@ -44,7 +42,7 @@ SPICE is the protocol which is used by VM viewer for interacting with VM. Typica
 - drag-and-drop between guest and host
 - auto adjusting guest resolution to host VM viewer window size (note: virt-manager requires additional setting to enable sending resolution setting request to guest: View->Scale display->auto resize VM with window)
 
-`virtio-win-guest-tools.exe` from same ISO image installs "QEMU Guest Agent" and "SPICE agent"
+`virtio-win-guest-tools.exe` in virtio-win.iso installs "QEMU Guest Agent" and "SPICE agent"
 
 https://en.wikipedia.org/wiki/Simple_Protocol_for_Independent_Computing_Environments
 
