@@ -5,6 +5,36 @@ summary: Notes about development of https://github.com/shatsky/lightning-image-v
 
 This is not SDL3 app development guide. SDL3 documentation is quite good and complete. These are notes about some corner cases and related problems.
 
+# Rewrite in Rust
+
+What? Yes.
+
+Rust already has 2 very mature components fitting the project well:
+- image-rs: "the" Rust image decoding library
+- winit: "the" Rust window library. Corresponds to SDL window and event APIs. Doesn't handle drawing
+
+As for drawing/rendering, I haven't found mature equivalent to SDL Render API ( https://wiki.libsdl.org/SDL3/CategoryRender ). There's wgpu (used, among others, by Firefox and indirectly by Cosmic desktop), but it's much closer to Vulkan than to simple "throw this rect of texture into that rect of window".
+
+Migration plan:
+- (done) move to image-rs for image decoding; with everything else written in C and image-rs being Rust library with no C API, this requires writing FFI for it; but app only needs few functions to decode still and animated images
+- rewrite app itself in Rust, using sdl3-rs to call SDL3
+- (maybe) move to winit for window and event handling, leaving SDL3 for rendering
+- (maybe) move to some Rust rendering lib
+
+https://xkcd.com/3164/ "When switching to mertic, make the process easier by doing it in steps"
+
+## Rust and runtime code sharing
+
+My first thought was to enter Nix env with Rust libs which I wanted to use; I immediately found out that NixOS does not provide Nix libs as nixpkgs units, as typical Rust libs are not designed to be built as standalone binaries like C shared libs or Python modules; Cargo expects that concrete versions of deps are provided in project config, and builds them for project, statically linking all code built from Rust src.
+
+Moved to [2025-12-22_runtime-code-sharing-rust.html](2025-12-22_runtime-code-sharing-rust.html)
+
+## image-rs
+
+- flow: get decoder -> read metadata -> try to decode as animation, getting frame iter -> get frames or, if failed to get iter, decode as still image
+- no generic animation decoding API yet ( https://github.com/image-rs/image/issues/2360 ); reader.into_decoder() returns decoder as `dyn ImageDecoder`, but animation decoding is done via other trait AnimationDecoder, which is implemented only by some decoders (gif, png, webp) and can't be used via `dyn ImageDecoder` even via casting to concrete decoder type because it's boxed; current solution is to check detected format via `reader.type()` and then instantiate decoder via `<concrete_decoder_type>::new(reader.into_inner())` if decoder of detected format implements trait AnimationDecoder; then pass decoder as `dyn ImageDecoder` and, when needed, check concrete type and cast to it
+- no inner support for JXL and HEIC; however there's plugin support and `jxl-oxide` and `libheif-rs` provide hooks
+
 # SDL generic stuff
 
 ## Window size and position
@@ -33,6 +63,8 @@ SDL3 "proper way to write HiDPI aware apps" is described in https://wiki.libsdl.
 # Windows
 
 ## Cross building for Windows on NixOS Linux
+
+Note: deprecated, for now I do it via GitHub Actions, locally with act, see relevant section
 
 This is how I manually built Windows binary on NixOS:
 - env with x86_64-w64-mingw32-gcc: `nix-shell -p pkgsCross.mingwW64.pkgsBuildHost.gcc`
@@ -91,6 +123,8 @@ However, Emscripten doesn't seem to care much about scenario "run unmodified/Ems
 ## Building app
 
 Generic build sequence is like:
+
+Note: things related to SDL_image are deprecated
 
 ```
 # build SDL
@@ -166,40 +200,52 @@ So, any JPEG is valid JIF; many JPEGs are also either valid JFIF or EXIF (file f
 
 ## EXIF orientation tag
 
+Note: things related to libexif are deprecated, exif orientation is obtained via image-rs
+
 EXIF metadata is mostly relevant in scope of image viewer development because of its orientation tag and its usage in JPEG. It's not uncommon that image pixmap is encoded in different orientation then it's supposed to be displayed, usually as result of camera being rotated when taking photo. For lossless image formats like PNG it's no problem to re-encode pixmap with corrected orientation, but for lossless image formats like JPEG re-encoding usually causes loss of quality. Therefore, common solution is to add metadata with some "orientation tag" which tells viewer to apply transformation to pixmap after decoding it before displaying it. Some newer lossy image formats have it defined in the format itself, but JPEG historically relies on EXIF one, and common JPEG decoders incl. libjpeg don't decode EXIF metadata, leaving this task up to app.
 
 Tag values and decoded pixmap->view transformations seen as decoded pixmap mirroring (n/y) and rotation (1/4 turns clockwise):
 - 1: n, 0
 - 2: y, 0
 - 3: n, 2
-- 4: y, 2
-- 5: y, 3
+- 4: y, 2 (or flip vertical)
+- 5: y, 3 (or rotate 1/4 and flip horizontal)
 - 6: n, 1
-- 7: y, 1
-- 8: y, 3
+- 7: y, 1 (or rotate 3/4 and flip horizontal)
+- 8: n, 3
 
 ## Test image set generation
 
 ```
-exiftool -all= -o image-exif-removed.jpg image.jpg
-exiftool -Orientation=1 -n -o image-exif-oriented-n-0.jpg image.jpg
-exiftool -Orientation=2 -n -o image-exif-oriented-y-0.jpg image.jpg
-exiftool -Orientation=3 -n -o image-exif-oriented-n-2.jpg image.jpg
-exiftool -Orientation=4 -n -o image-exif-oriented-y-2.jpg image.jpg
-exiftool -Orientation=5 -n -o image-exif-oriented-y-3.jpg image.jpg
-exiftool -Orientation=6 -n -o image-exif-oriented-n-1.jpg image.jpg
-exiftool -Orientation=7 -n -o image-exif-oriented-y-1.jpg image.jpg
-exiftool -Orientation=8 -n -o image-exif-oriented-y-3.jpg image.jpg
-magick image.jpg image.png
-magick image.jpg image.gif
-magick image.jpg image.webp
-magick image.jpg image.avif
-magick image.jpg image.heic
-magick image.jpg image.tiff
-magick image.jpg image.jxl
+mkdir -p test-images
+magick share/icons/hicolor/scalable/apps/lightning-image-viewer.svg test-images/img.png
+magick test-images/img.png test-images/img.jpg
+magick test-images/img.png test-images/img.gif
+magick test-images/img.png test-images/img.webp
+magick test-images/img.png test-images/img.heic
+magick test-images/img.png test-images/img.jxl
+magick test-images/img.png test-images/img.tiff
+magick test-images/img.png test-images/img.avif
+exiftool -Orientation=1 -n -o test-images/img-exif-oriented-n-0.jpg test-images/img.jpg
+exiftool -Orientation=6 -n -o test-images/img-exif-oriented-n-1.jpg test-images/img.jpg
+exiftool -Orientation=3 -n -o test-images/img-exif-oriented-n-2.jpg test-images/img.jpg
+exiftool -Orientation=8 -n -o test-images/img-exif-oriented-n-3.jpg test-images/img.jpg
+exiftool -Orientation=2 -n -o test-images/img-exif-oriented-y-0.jpg test-images/img.jpg
+exiftool -Orientation=7 -n -o test-images/img-exif-oriented-y-1.jpg test-images/img.jpg
+exiftool -Orientation=4 -n -o test-images/img-exif-oriented-y-2.jpg test-images/img.jpg
+exiftool -Orientation=5 -n -o test-images/img-exif-oriented-y-3.jpg test-images/img.jpg
+magick test-images/img.png -rotate 0 test-images/img-rotated-0.png
+magick test-images/img.png -rotate 90 test-images/img-rotated-1.png
+magick test-images/img.png -rotate 180 test-images/img-rotated-2.png
+magick test-images/img.png -rotate 270 test-images/img-rotated-3.png
+magick -delay 100 -loop 0 test-images/img-rotated-*.png test-images/img-animation.gif
+magick -delay 100 -loop 0 test-images/img-rotated-*.png APNG:test-images/img-animation.png
+magick -delay 100 -loop 0 test-images/img-rotated-*.png test-images/img-animation.webp
 ```
 
 ## Animation
+
+Note: things related to SDL_image are deprecated, anim is decoded via image-rs and loaded into app-specific Frame arr holding frame textures and delays
 
 SDL_image provides IMG_Animation struct with arrays of frame pixmaps and their "delays"; it can load animated GIFs into IMG_Animation; animated PNGs seem to be not supported.
 
@@ -266,4 +312,20 @@ Of course workflow will fail on action which depends on something which is only 
 
 # Build systems
 
-Makefile is a useful encapsulation of project-specific build commands which mantainers would rather not
+Makefile is a useful encapsulation of project-specific build commands which mantainers would rather not spend time on.
+
+## Publishing in Windows Store
+
+Microsoft tried to force me to add phone number and rejected UA one with reason something about sending auth SMS not supported for the country, eventially I went through https://developer.microsoft.com/en-us/microsoft-store/register "Create a developer account" blue button below and it worked (or did they just fix that?). Also forced to use mobile phone for document verification, but that worked well with Google Chrome on AOSP Android. "Publisher name" can be changed at https://partner.microsoft.com/en-us/dashboard/account/v3/organization/legalinfo#developer Contact Info -> Update, there's warning stating that apps will have to be re-submitted with new name.
+
+https://partner.microsoft.com/en-us/dashboard/account/v3/overview
+
+Packages are uploaded in MSIX format. Seems that Microsoft considers its tool implementation as source of truth about MSIX format. It also provides subset as cross platform https://github.com/microsoft/msix-packaging which is semi abandoned and underdocumented, but useable to create MSIX on Linux from directory containing app files and manifest AppxManifest.xml. Despite what Microsoft pages tell, on Linux it has to be build with `./makelinux --pack`, which will produce makemsix executable with packaging support, which has to be used like `.vs/bin/makemsix pack -d /path/to/dir/with/app/files -p /path/to/package/file.msix`
+
+MSIX is basically ZIP archive with app files + AppxManifest.xml + few other metadata files generated by packaging tool
+
+msix-packaging makemsix produces unsigned MSIX, but Windows now only allows to install signed, even from powershell, even with developer mode enabled. It's possible to self sign and add cert to system to allow install, but if goal is publishing in store, it seems simpler to just upload it to sign by Microsoft key and then install from store
+
+Semi complete guide for manually writing `AppxManifest.xml`: https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion
+Full schema reference: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/schema-root
+- https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-identity despite all examples, in "Publisher" only "CN" seems really needed
