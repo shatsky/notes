@@ -17,7 +17,7 @@ HEADER = '''
   </head>
   <body>
     <div class="container py-5">
-      <p>DISCLAIMER: these notes reflect my knowledge and understanding of subjects, not the ultimate truth. Many are written about things which I'm learning at the moment. Corrections are welcome</p>
+      <p>DISCLAIMER: these notes reflect my knowledge and understanding of subjects, not the ultimate truth. Most are written in process of learning things. Corrections are welcome</p>
       <hr>
       <!--header end-->
 '''
