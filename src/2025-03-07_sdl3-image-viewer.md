@@ -53,7 +53,7 @@ Cargo default build time deps fetching conflicts with Nix deterministic offline 
 
 Surprisingly, there seems to be a problem with creating maximized non-fullscreen window with exactly maximum size allowed by shell on the "current" display. `SDL_CreateWindow()` requires explicit width and height. Options:
 - `SDL_GetDesktopDisplayMode()`: get full height and width, including shell UI
-- `SDL_GetDisplayUsableBounds()`: get rectangle representing useable (not used by shell UI) area of the display in global coordinate system of multi-display setup; this seems to produce incorrect results on Plasma Wayland
+- `SDL_GetDisplayUsableBounds()`: get rectangle representing usable (not used by shell UI) area of the display in global coordinate system of multi-display setup; this seems to produce incorrect results on Plasma Wayland
 
 `SDL_GetCurrentDisplayMode()` is NOT about "current display", it's about "current mode" for fullscreen apps switching display mode on platforms which support this, not relevant at all. All these functions require display id; however there seems to be no control over on which display new window is displayed. SDL2 SDL_CreateWindow() used to accept position x, y allowing to position it in top right corner of specific display in multi display setup with values from `SDL_GetDisplayUsableBounds()`; however SDL3 `SDL_CreateWindow()` doesn't have these args anymore
 
@@ -77,8 +77,8 @@ SDL3 "proper way to write HiDPI aware apps" is described in https://wiki.libsdl.
 Makefile can be seen as convenient encapsulation of project-specific build commands. Initially I thought that for simple project built with single gcc command even Makefile is not needed, but both people and packaging systems widely assume that `make && make install` is default thing.
 
 I've used Suckless as reference for project Makefile. It has 2 typical vars:
-- DESTIR: tmp dir to install to from which it will be copied by pkg manager to "hierarchy root" (make is normally run with limited priviliges in sandboxed build env and final destination is not available or readonly); on Nix it's `$out`
-- PREFIX: subdir under "hierarchy root"; on "traditonal" Linux distros for non-critical software it's /usr, on Nix /
+- DESTIR: tmp dir to install to from which it will be copied by pkg manager to "hierarchy root" (make is normally run with limited privileges in sandboxed build env and final destination is not available or readonly); on Nix it's `$out`
+- PREFIX: subdir under "hierarchy root"; on "traditional" Linux distros for non-critical software it's /usr, on Nix /
 
 ## Nix flakes
 
@@ -144,7 +144,7 @@ Windows "antivirus" nowadays often blocks unknown unsigned binaries which are no
 
 Surprisingly for me being used to "just use whatever glibc provides", "ISO C standard library" has file I/O but no directory I/O API at all (are there platforms which have filesystem without directory concept?). glibc (and other libc implementations for POSIX systems) implements ISO C standard library with POSIX extensions including POSIX directory I/O. However mingw gcc uses not glibc but Microsoft C runtime (msvcrt/ucrt) which doesn't have (most of?) POSIX extensions; native Windows software is expected to use Win32 API fileapi.h `FindFirstFile()`/`FindNextFile()`/`FindClose()`; mingw provides subset of POSIX implemented with these, but fairly incomplete, it misses `scandir()` among others which I needed to iterate image files sorted by mtime.
 
-Another surprising discovery was that struct `dirent` which represents directory entry in POSIX directory I/O API is allowed to "overflow" its declared size; it's last member `dirent.d_name`, declared as char array of some impl-decided size, can "hold" longer \0-terminated str than its size allows. Implementations allocate mem of appropriate size for `dirent` to "safely" hold its data with this "overflow". It's often refered as case of "Flexible array member", but "Flexible array member" seems to be about allowing declaring last member of struct as array without specified size at all (treated by sizeof() as size of 0), while glibc seems to declare `d_name` as array of size 1.
+Another surprising discovery was that struct `dirent` which represents directory entry in POSIX directory I/O API is allowed to "overflow" its declared size; it's last member `dirent.d_name`, declared as char array of some impl-decided size, can "hold" longer \0-terminated str than its size allows. Implementations allocate mem of appropriate size for `dirent` to "safely" hold its data with this "overflow". It's often referred as case of "Flexible array member", but "Flexible array member" seems to be about allowing declaring last member of struct as array without specified size at all (treated by sizeof() as size of 0), while glibc seems to declare `d_name` as array of size 1.
 
 ## Publishing in Windows Store
 
@@ -156,7 +156,7 @@ Flow:
 
 Managed via https://partner.microsoft.com/en-us/dashboard/account/v3/overview
 
-Microsoft Partner Center reuses Microsoft account but can require additional checks. Microsoft tried to force me to add phone number and rejected UA one with reason something about sending auth SMS not supported for the country, eventially I went through https://developer.microsoft.com/en-us/microsoft-store/register "Create a developer account" blue button below and it worked (or did they just fix that?). Also forced to use mobile phone for document verification, but that worked well with Google Chrome on AOSP Android. "Publisher name" can be changed at https://partner.microsoft.com/en-us/dashboard/account/v3/organization/legalinfo#developer Contact Info -> Update, there's warning stating that apps will have to be re-submitted with new name.
+Microsoft Partner Center reuses Microsoft account but can require additional checks. Microsoft tried to force me to add phone number and rejected UA one with reason something about sending auth SMS not supported for the country, eventually I went through https://developer.microsoft.com/en-us/microsoft-store/register "Create a developer account" blue button below and it worked (or did they just fix that?). Also forced to use mobile phone for document verification, but that worked well with Google Chrome on AOSP Android. "Publisher name" can be changed at https://partner.microsoft.com/en-us/dashboard/account/v3/organization/legalinfo#developer Contact Info -> Update, there's warning stating that apps will have to be re-submitted with new name.
 
 Packages are uploaded in MSIX format. Seems that Microsoft considers its tool implementation as source of truth about MSIX format. It also provides subset as cross platform https://github.com/microsoft/msix-packaging which is semi abandoned and underdocumented, but useable to create MSIX on Linux from directory containing app files and manifest AppxManifest.xml. Despite what Microsoft pages tell, on Linux it has to be build with `./makelinux --pack`, which will produce makemsix executable with packaging support, which has to be used like `.vs/bin/makemsix pack -d /path/to/dir/with/app/files -p /path/to/package/file.msix`
 
@@ -213,7 +213,7 @@ emcc -I/path/to/SDL3/include -I/path/to/SDL3_image/include -L/path/to/SDL3/build
 
 The term "HTML Shell" again emphasizes that Emscripten crew considers Emscripten app to be the one in control.
 
-To run Emscripten SDL app, it's basically enough for webpage to contain `<canvas id="canvas">` (SDL Emscripten backend looks for this id by default) and `<script src="/path/to/index.js">` (generated by emcc). However if one wants to change default Emscripten behaviour, one has to add JS which creates `Module` object with overrides before including index.js
+To run Emscripten SDL app, it's basically enough for webpage to contain `<canvas id="canvas">` (SDL Emscripten backend looks for this id by default) and `<script src="/path/to/index.js">` (generated by emcc). However if one wants to change default Emscripten behavior, one has to add JS which creates `Module` object with overrides before including index.js
 
 ## Starting app
 
@@ -249,8 +249,8 @@ This limitation can be disabled with emcc option `-sALLOW_MEMORY_GROWTH`
   - JFIF "JPEG File Interchange Format", "improved" JPEG file format based on JIF with specific "JFIF APP0" application segment (marker `\xff\xe0`) following SOI
 - TIFF is another image file format which is much more complex than JIF/JFIF; TIFF file is something like archive, consisting of "TIFF directories", which include "TIFF tags", allowing to contain multiple images in different formats (incl. JPEG). TIFF is rarely used as standalone file format nowadays, but commonly used as embedded file format because of EXIF.
 - EXIF is simultaneously metadata, file, TIFF and JPEG format. What? Yes.
-  - EXIF ascronym stands for "Exchangeable Image File Format"
-  - EXIF standard defines EXIF metadata format which is based on TIFF, one can say it's basically TIFF intended to be embedded in other files; "almost TIFF" because it misses some tags which are mandatory in valid TIFF file; but otherwise it is fully compatible with TIFF and can be parsed with tiffdump tool from libtiff project. But can't be parsed with libtiff, because its external API functions nessessarily trigger checks for those mandatory tags and libtiff doesn't provide any means to skip them. Anyway libtiff seems to have very poor security reputation and virtually all big software seems to use either libexif or exiv2 for parsing EXIF metadata
+  - EXIF acronym stands for "Exchangeable Image File Format"
+  - EXIF standard defines EXIF metadata format which is based on TIFF, one can say it's basically TIFF intended to be embedded in other files; "almost TIFF" because it misses some tags which are mandatory in valid TIFF file; but otherwise it is fully compatible with TIFF and can be parsed with tiffdump tool from libtiff project. But can't be parsed with libtiff, because its external API functions necessarily trigger checks for those mandatory tags and libtiff doesn't provide any means to skip them. Anyway libtiff seems to have very poor security reputation and virtually all big software seems to use either libexif or exiv2 for parsing EXIF metadata
   - EXIF standard defines another JPEG file format which is also based on JIF and is similar to JFIF but, unlike JFIF, it requires that after SOI there is "APP1" segment (marker `\xff\xe1`) with embedded EXIF metadata. This EXIF JPEG file format is called... EXIF, of course (suggesting that writing of EXIF standard was started with the intention to produce just it, but then it got out of control)
   - EXIF standard also defines TIFF file format with embedded EXIF metadata (which is, again, "almost TIFF" itself)
   - EXIF standard also defines WAV audio file format with embedded EXIF metadata... Yes, "Image File Format" audio format
