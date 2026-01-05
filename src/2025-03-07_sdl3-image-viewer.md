@@ -3,7 +3,15 @@ title: SDL3 image viewer development notes
 summary: Notes about development of https://github.com/shatsky/lightning-image-viewer
 ---
 
-This is not SDL3 app development guide. SDL3 documentation is quite good and complete. These are notes about some corner cases and related problems.
+Notes which might be useful for someone who might want to get into the project.
+
+Project chronology:
+- 2021 created prototype with SDL2. Published on github but did not try to promote, though I was using it as my primary image viewer since then. Window transparency only worked with X11 with my patch for SDL which I didn't try to upstream
+- 2024 resumed work, partly inspired by news about upcoming SDL3 release with good cross-platform support for transparent windows. Switched to SDL3, released 0.1, created 1st post on reddit about it 1st time, mostly to check that there are still no other projects with similar UI/UX possibly obsoleting it
+- 2025-early-summer added EXIF support via libexif, released 0.2.0 (initially targeted Ubuntu 25.10 release day because it shipped with SDL3, missed it ofc), promoted on several websites, got some feedback
+- 2025-mid-summer added HEIC support via libheif, released 0.3.0
+- 2025-late-summer implemented animation playback with SDL_image IMG_Animation, wanted to release 0.4.0 but never did
+- 2025-autumn started learning Rust, learnt that Rust image-rs is good and relatively easy to plug in instead of SDL_image, switched to it, released 0.5.1
 
 # Rewrite in Rust
 
@@ -21,13 +29,17 @@ Migration plan:
 - (maybe) move to winit for window and event handling, leaving SDL3 for rendering
 - (maybe) move to some Rust rendering lib
 
-https://xkcd.com/3164/ "When switching to mertic, make the process easier by doing it in steps"
+https://xkcd.com/3164/ "When switching to metric, make the process easier by doing it in steps"
 
 ## Rust and runtime code sharing
 
-My first thought was to enter Nix env with Rust libs which I wanted to use; I immediately found out that NixOS does not provide Nix libs as nixpkgs units, as typical Rust libs are not designed to be built as standalone binaries like C shared libs or Python modules; Cargo expects that concrete versions of deps are provided in project config, and builds them for project, statically linking all code built from Rust src.
+My first thought was to enter Nix env with Rust libs which I wanted to use; I immediately found out that NixOS does not provide Nix libs as nixpkgs units, as typical Rust libs are not designed to be built as standalone binaries like C shared libs or Python modules; Cargo expects that concrete versions of deps are specified in project config, and builds them for project, statically linking all code built from Rust src.
 
-Moved to [2025-12-22_runtime-code-sharing-rust.html](2025-12-22_runtime-code-sharing-rust.html)
+Split into [2025-12-22_runtime-code-sharing-rust.html](2025-12-22_runtime-code-sharing-rust.html)
+
+## Rust and Nix
+
+Cargo default build time deps fetching conflicts with Nix deterministic offline build sandbox. Nix solves this with its "rustPlatform.buildRustPackage" which, given Cargo.lock, fetches all Rust deps separately before entering sandbox and sets env vars to make Cargo work offline and use pre fetched deps.
 
 ## image-rs
 
@@ -59,6 +71,28 @@ Normally both do happen and I need to prevent both from happening to have pixel 
 For now I set `SDL_HINT_VIDEO_WAYLAND_SCALE_TO_DISPLAY` 1; it's Wayland-specific quirk which is discouraged from being used in docs, but it seems to work well on Plasma Wayland, and on Windows both displaying and reporting seems to be unscaled for "HiDPI/scaling-unaware" apps by default
 
 SDL3 "proper way to write HiDPI aware apps" is described in https://wiki.libsdl.org/SDL3/README-highdpi , however (at least on Plasma Wayland) setting window flag `SDL_WINDOW_HIGH_PIXEL_DENSITY` only prevents displaying scaling, while reporting remains scaled, requiring additional calls like `SDL_ConvertEventToRenderCoordinates()` to get values in "physical pixels", which makes no sense for me; I think that sane approach would be to save single switch (like `SDL_HINT_VIDEO_WAYLAND_SCALE_TO_DISPLAY` but platform agnostic)
+
+# Linux
+
+Makefile can be seen as convenient encapsulation of project-specific build commands. Initially I thought that for simple project built with single gcc command even Makefile is not needed, but both people and packaging systems widely assume that `make && make install` is default thing.
+
+I've used Suckless as reference for project Makefile. It has 2 typical vars:
+- DESTIR: tmp dir to install to from which it will be copied by pkg manager to "hierarchy root" (make is normally run with limited priviliges in sandboxed build env and final destination is not available or readonly); on Nix it's `$out`
+- PREFIX: subdir under "hierarchy root"; on "traditonal" Linux distros for non-critical software it's /usr, on Nix /
+
+## Nix flakes
+
+Commands to update flake lock to nixpkgs rev which host currently uses and test flake:
+
+`nixos-version --json` (prints nixpkgsRevision)
+
+`nix --extra-experimental-features 'nix-command flakes' flake lock --override-input nixpkgs github:NixOS/nixpkgs/{nixpkgsRevision}`
+
+`nix --extra-experimental-features 'nix-command flakes' run .`
+
+To run from github:
+
+`nix --extra-experimental-features 'nix-command flakes' run github:shatsky/lightning-image-viewer`
 
 # Windows
 
@@ -106,11 +140,37 @@ By default Windows uses some mess of UTF16 and single byte encodings. For graphi
 
 Windows "antivirus" nowadays often blocks unknown unsigned binaries which are not yet in some trusted binaries db after having been downloaded and run by thousands of users, claiming it contains "Trojan/Wacatac.B!ml" or similarly named malware. Nobody knows for sure what this even means, but many claim that "!ml" suffix means it's AI detection.
 
-# C file and directory I/O, Windows, POSIX and glibc
+## C file and directory I/O, Windows, POSIX and glibc
 
 Surprisingly for me being used to "just use whatever glibc provides", "ISO C standard library" has file I/O but no directory I/O API at all (are there platforms which have filesystem without directory concept?). glibc (and other libc implementations for POSIX systems) implements ISO C standard library with POSIX extensions including POSIX directory I/O. However mingw gcc uses not glibc but Microsoft C runtime (msvcrt/ucrt) which doesn't have (most of?) POSIX extensions; native Windows software is expected to use Win32 API fileapi.h `FindFirstFile()`/`FindNextFile()`/`FindClose()`; mingw provides subset of POSIX implemented with these, but fairly incomplete, it misses `scandir()` among others which I needed to iterate image files sorted by mtime.
 
 Another surprising discovery was that struct `dirent` which represents directory entry in POSIX directory I/O API is allowed to "overflow" its declared size; it's last member `dirent.d_name`, declared as char array of some impl-decided size, can "hold" longer \0-terminated str than its size allows. Implementations allocate mem of appropriate size for `dirent` to "safely" hold its data with this "overflow". It's often refered as case of "Flexible array member", but "Flexible array member" seems to be about allowing declaring last member of struct as array without specified size at all (treated by sizeof() as size of 0), while glibc seems to declare `d_name` as array of size 1.
+
+## Publishing in Windows Store
+
+Flow:
+- build Windows binaries
+- package into MSIX pkg
+- on Microsoft Partner Center app product page, upload MSIX (if it has same version and arch as already uploaded and validated one, latter has to be deleted first)
+- submit update for certification
+
+Managed via https://partner.microsoft.com/en-us/dashboard/account/v3/overview
+
+Microsoft Partner Center reuses Microsoft account but can require additional checks. Microsoft tried to force me to add phone number and rejected UA one with reason something about sending auth SMS not supported for the country, eventially I went through https://developer.microsoft.com/en-us/microsoft-store/register "Create a developer account" blue button below and it worked (or did they just fix that?). Also forced to use mobile phone for document verification, but that worked well with Google Chrome on AOSP Android. "Publisher name" can be changed at https://partner.microsoft.com/en-us/dashboard/account/v3/organization/legalinfo#developer Contact Info -> Update, there's warning stating that apps will have to be re-submitted with new name.
+
+Packages are uploaded in MSIX format. Seems that Microsoft considers its tool implementation as source of truth about MSIX format. It also provides subset as cross platform https://github.com/microsoft/msix-packaging which is semi abandoned and underdocumented, but useable to create MSIX on Linux from directory containing app files and manifest AppxManifest.xml. Despite what Microsoft pages tell, on Linux it has to be build with `./makelinux --pack`, which will produce makemsix executable with packaging support, which has to be used like `.vs/bin/makemsix pack -d /path/to/dir/with/app/files -p /path/to/package/file.msix`
+
+MSIX is basically ZIP archive with app files + AppxManifest.xml + few other metadata files generated by packaging tool
+
+Semi complete guide for manually writing `AppxManifest.xml`: https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion
+Full schema reference: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/schema-root
+- https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-identity despite all examples, in "Publisher" only "CN" seems really needed
+- must append `, OID.2.25.311729368913984317654407730594956997722=1` to allow installing unsigned MSIX via `Add-AppxPackage -AllowUnsigned` on Win11
+- despite docs claiming that version major number can't be 0, it can; I use x.y.z app versioning, and assume a=x, b=y, c=z in MSIX a.b.c.d, d possibly used for numbering MSIX packaged from same app build
+
+msix-packaging makemsix produces unsigned MSIX. Internet is full of non working suggestions how to install it. On Win10 it seems practically impossible, on Win11 it's enough to pkg with `OID.2.25.311729368913984317654407730594956997722=1` in Identity/Publisher and then run `Add-AppxPackage -AllowUnsigned -path path/to/pkg.msix` in admin powershell
+
+Docs claim that Windows Certification Kit has to be used to test locally before submitting. Probably doesn't matter if app is not doing anything "unusual", but ok. It's now installed via Windows SDK installer which can be downloaded from https://learn.microsoft.com/en-us/windows/apps/windows-sdk/downloads . Usage is described here: https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-app-certification-kit . In `appcert.exe test -packagefullname [package full name] -reportoutputpath [report file name]`, `[package full name]` I got as installed (from MSIX) apps parent dir name via process manager, `[report file name]` is any writeable filepath with filename ending with .xml .
 
 # Emscripten
 
@@ -217,31 +277,39 @@ Tag values and decoded pixmap->view transformations seen as decoded pixmap mirro
 ## Test image set generation
 
 ```
-mkdir -p test-images
-magick share/icons/hicolor/scalable/apps/lightning-image-viewer.svg test-images/img.png
-magick test-images/img.png test-images/img.jpg
-magick test-images/img.png test-images/img.gif
-magick test-images/img.png test-images/img.webp
-magick test-images/img.png test-images/img.heic
-magick test-images/img.png test-images/img.jxl
-magick test-images/img.png test-images/img.tiff
-magick test-images/img.png test-images/img.avif
-exiftool -Orientation=1 -n -o test-images/img-exif-oriented-n-0.jpg test-images/img.jpg
-exiftool -Orientation=6 -n -o test-images/img-exif-oriented-n-1.jpg test-images/img.jpg
-exiftool -Orientation=3 -n -o test-images/img-exif-oriented-n-2.jpg test-images/img.jpg
-exiftool -Orientation=8 -n -o test-images/img-exif-oriented-n-3.jpg test-images/img.jpg
-exiftool -Orientation=2 -n -o test-images/img-exif-oriented-y-0.jpg test-images/img.jpg
-exiftool -Orientation=7 -n -o test-images/img-exif-oriented-y-1.jpg test-images/img.jpg
-exiftool -Orientation=4 -n -o test-images/img-exif-oriented-y-2.jpg test-images/img.jpg
-exiftool -Orientation=5 -n -o test-images/img-exif-oriented-y-3.jpg test-images/img.jpg
-magick test-images/img.png -rotate 0 test-images/img-rotated-0.png
-magick test-images/img.png -rotate 90 test-images/img-rotated-1.png
-magick test-images/img.png -rotate 180 test-images/img-rotated-2.png
-magick test-images/img.png -rotate 270 test-images/img-rotated-3.png
-magick -delay 100 -loop 0 test-images/img-rotated-*.png test-images/img-animation.gif
-magick -delay 100 -loop 0 test-images/img-rotated-*.png APNG:test-images/img-animation.png
-magick -delay 100 -loop 0 test-images/img-rotated-*.png test-images/img-animation.webp
+magick img.png img.jpg
+magick img.png img.gif
+magick img.png img.webp
+magick img.png img.heic
+magick img.png img.jxl
+magick img.png img.tiff
+magick img.png img.avif
+magick img.png img.bmp
+exiftool -Orientation=1 -n -o img-exif-oriented-n-0.jpg img.jpg
+exiftool -Orientation=6 -n -o img-exif-oriented-n-1.jpg img.jpg
+exiftool -Orientation=3 -n -o img-exif-oriented-n-2.jpg img.jpg
+exiftool -Orientation=8 -n -o img-exif-oriented-n-3.jpg img.jpg
+exiftool -Orientation=2 -n -o img-exif-oriented-y-0.jpg img.jpg
+exiftool -Orientation=7 -n -o img-exif-oriented-y-1.jpg img.jpg
+exiftool -Orientation=4 -n -o img-exif-oriented-y-2.jpg img.jpg
+exiftool -Orientation=5 -n -o img-exif-oriented-y-3.jpg img.jpg
+magick img.png -rotate 0 img-rotated-0.png
+magick img.png -rotate 90 img-rotated-1.png
+magick img.png -rotate 180 img-rotated-2.png
+magick img.png -rotate 270 img-rotated-3.png
+magick -delay 100 -loop 0 img-rotated-*.png img-animation.gif
+magick -delay 100 -loop 0 img-rotated-*.png APNG:img-animation.png
+magick -delay 100 -loop 0 img-rotated-*.png img-animation.webp
+magick img.png img.dds
+magick img.png img.exr
+magick img.png img.ff
+magick img.png img.hdr
+magick img.png img.ico
+magick img.png img.pnm
+magick img.png img.tga
 ```
+
+Test image must be not square to test rotation.
 
 ## Animation
 
@@ -310,22 +378,112 @@ Act allows to run workflow locally: `act --reuse --input <input_name>=<value>`. 
 
 Of course workflow will fail on action which depends on something which is only avail on GitHub cloud runners
 
-# Build systems
+# Comparison with other viewers
 
-Makefile is a useful encapsulation of project-specific build commands which mantainers would rather not spend time on.
+- (template)
+  - "fullscreen overlay":
+  - "pan with drag with lmousebtn pressed":
+  - "pan with kb arrows":
+  - "zoom with scroll into point under cursor":
+  - "zoom with kb +/- into central point":
+  - "zoom with kb 0 to 1:1":
+  - "toggle fullscreen with middle mouse btn":
+  - "toggle fullscreen with F":
+  - "toggle fullscreen with F11":
+  - "switch prev/next with pgup/pgdn":
+  - "exit with click on img":
+  - "exit with Esc":
+  - "exit with Enter":
+- qview
+  - "fullscreen overlay": N
+  - "pan with drag with lmousebtn pressed": Y
+  - "pan with kb arrows": N (left/right switch prev/next, up/down rotate)
+  - "zoom with scroll into point under cursor": N (pan)
+  - "zoom with kb +/- into central point": N (not used)
+  - "zoom with kb 0 to 1:1": N (not used)
+  - "toggle fullscreen with middle mouse btn": N (zoom to fit window)
+  - "toggle fullscreen with F": N (mirror)
+  - "toggle fullscreen with F11": N (not used)
+  - "switch prev/next with pgup/pgdn": N (pan vertically, with win h step)
+  - "exit with click on img": N (double click toggles fullscreen)
+  - "exit with Esc": N (not used)
+  - "exit with Enter": N (not used)
+- feh
+  - "fullscreen overlay": N
+  - "pan with drag with lmousebtn pressed": Y
+  - "pan with kb arrows": N (up/down zoom into point in the center)
+  - "zoom with scroll into point under cursor": N (not used)
+  - "zoom with kb +/- into central point": N (not used)
+  - "zoom with kb 0 to 1:1": N (not used)
+  - "toggle fullscreen with middle mouse btn": N (zoom to 1:1 and center)
+  - "toggle fullscreen with F": Y (ugly, windows seems recreated)
+  - "toggle fullscreen with F11": N (not used)
+  - "switch prev/next with pgup/pgdn": N (not used)
+  - "exit with click on img": N (not used)
+  - "exit with Esc": Y
+  - "exit with Enter": N (not used)
+- sxiv
+  - "fullscreen overlay": N
+  - "pan with drag with lmousebtn pressed": N
+  - "pan with kb arrows": Y
+  - "zoom with scroll into point under cursor": Y (inconsistent)
+  - "zoom with kb +/- into central point": N (Shift+=/-, into point under cursor, inconsistent, + zoom to 1:1, - mirror vertically)
+  - "zoom with kb 0 to 1:1": N (not used)
+  - "toggle fullscreen with middle mouse btn": N (pan, in a way I find inconvinient)
+  - "toggle fullscreen with F": Y (preserving scale and left top corner)
+  - "toggle fullscreen with F11": N (not used)
+  - "switch prev/next with pgup/pgdn": N (not used)
+  - "exit with click on img": N (not used)
+  - "exit with Esc": N (not used)
+  - "exit with Enter": N (gallery of files specified as cmdine args)
+- Loupe (Gnome image viewer)
+  - "fullscreen overlay": X
+  - "pan with drag with lmousebtn pressed": Y
+  - "pan with kb arrows": N (left/right switches prev/next, also doesn't loop)
+  - "zoom with scroll into point under cursor": N (vertical scroll pans vertically, horizontal horizontally, zoom via multitouch)
+  - "zoom with kb +/- into central point": N (zooms into point under cursor)
+  - "zoom with kb 0 to 1:1": N (zooms to fit window)
+  - "toggle fullscreen with middle mouse btn": X (does nothing, Enter toggles fullscreen)
+  - "toggle fullscreen with F": N (does nothing)
+  - "toggle fullscreen with F11": Y
+  - "switch prev/next with pgup/pgdn": Y
+  - "exit with click on img": N (double click toggles fullscreen)
+  - "exit with Esc": N
+  - "exit with Enter": N (toggles fullscreen)
+- Win11 image viewer
+  - "fullscreen overlay": N
+  - "pan with drag with lmousebtn pressed": Y
+  - "pan with kb arrows": N (Y for up/down, but left/right switch prev/next)
+  - "zoom with scroll into point under cursor": Y
+  - "zoom with kb +/- into central point": N
+  - "zoom with kb 0 to 1:1": N
+  - "toggle fullscreen with middle mouse btn": N (double click zoom to 1:1)
+  - "toggle fullscreen with F": N (toggle images list panel)
+  - "toggle fullscreen with F11": Y
+  - "switch prev/next with pgup/pgdn": Y
+  - "exit with click on img": N (double click zoom to 1:1)
+  - "exit with Esc": N
+  - "exit with Enter": N
+- Gwenview (KDE/Plasma viewer)
+  - "fullscreen overlay": N
+  - "pan with drag with lmousebtn pressed": Y
+  - "pan with kb arrows": Y
+  - "zoom with scroll into point under cursor": N (vertical pan)
+  - "zoom with kb +/- into central point": N
+  - "zoom with kb 0 to 1:1": N
+  - "toggle fullscreen with middle mouse btn":
+  - "toggle fullscreen with F": N (toggles zoom between cur zoom and fit window, cur zoom into point under cursor)
+  - "toggle fullscreen with F11": Y
+  - "switch prev/next with pgup/pgdn": N (vertical pan with view area h step)
+  - "exit with click on img": N (double click toggles fullscreen)
+  - "exit with Esc": N (switch to gallery view)
+  - "exit with Enter": N
+- Sushi
+- IrfanView
+- LightView
 
-## Publishing in Windows Store
+UI/UX which makes feeling that "activated" image miniature from gallery is "expanded" into larger view, which can be closed by clicking anywhere outside its rect, is commonly called "lightbox", "modal image viewing" or "quick view"; however close by clicking on image itself is not really popular, and UX designers seem to be obsessed with idea that user will often accidentally click on image and disruptive action like close should not be bound to it; even QuickLook/Sushi which is designed for toggling uses Space key.
 
-Microsoft tried to force me to add phone number and rejected UA one with reason something about sending auth SMS not supported for the country, eventially I went through https://developer.microsoft.com/en-us/microsoft-store/register "Create a developer account" blue button below and it worked (or did they just fix that?). Also forced to use mobile phone for document verification, but that worked well with Google Chrome on AOSP Android. "Publisher name" can be changed at https://partner.microsoft.com/en-us/dashboard/account/v3/organization/legalinfo#developer Contact Info -> Update, there's warning stating that apps will have to be re-submitted with new name.
+Vertical scrolling bound to vertical scrolling seems to be connected with "touchscreen first" UI; if touch movement is handled as pan, vertical and horizontal scrolling are automatically handled as vertical and horizontal touch movements by UI toolkits
 
-https://partner.microsoft.com/en-us/dashboard/account/v3/overview
-
-Packages are uploaded in MSIX format. Seems that Microsoft considers its tool implementation as source of truth about MSIX format. It also provides subset as cross platform https://github.com/microsoft/msix-packaging which is semi abandoned and underdocumented, but useable to create MSIX on Linux from directory containing app files and manifest AppxManifest.xml. Despite what Microsoft pages tell, on Linux it has to be build with `./makelinux --pack`, which will produce makemsix executable with packaging support, which has to be used like `.vs/bin/makemsix pack -d /path/to/dir/with/app/files -p /path/to/package/file.msix`
-
-MSIX is basically ZIP archive with app files + AppxManifest.xml + few other metadata files generated by packaging tool
-
-msix-packaging makemsix produces unsigned MSIX, but Windows now only allows to install signed, even from powershell, even with developer mode enabled. It's possible to self sign and add cert to system to allow install, but if goal is publishing in store, it seems simpler to just upload it to sign by Microsoft key and then install from store
-
-Semi complete guide for manually writing `AppxManifest.xml`: https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-manual-conversion
-Full schema reference: https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/schema-root
-- https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-identity despite all examples, in "Publisher" only "CN" seems really needed
+Panning image in pan area is usually only allowed when image does not fit in the area
